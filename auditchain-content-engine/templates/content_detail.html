@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Content #{{ content.id }} — AuditChain Content Engine{% endblock %}
+{% block page_title %}Content Review: #{{ content.id }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- ── Content Body Editor ────────────────────────────────── -->
+  <div class="col-lg-8">
+    <div class="bg-white border rounded-3 p-4">
+      <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <span class="badge-platform badge-{{ content.platform.value }}">
+          {{ content.platform.value }}
+        </span>
+        <span class="badge badge-{{ content.status.value }}">
+          {{ content.status.value.replace('_', ' ').title() }}
+        </span>
+        {% if content.source_type == 'rapid_response' %}
+          <span class="rapid-badge">⚡ Rapid Response</span>
+        {% endif %}
+        <span class="text-muted ms-auto" style="font-size:.75rem">
+          {{ content.content_pillar.value }}
+        </span>
+      </div>
+
+      <h5 class="fw-bold mb-1">{{ content.topic }}</h5>
+      <p class="text-muted" style="font-size:.8rem">
+        Generated {{ content.created_at.strftime('%B %d, %Y at %H:%M') if content.created_at else '' }} UTC
+        {% if content.model_used %}· {{ content.model_used }}{% endif %}
+        {% if content.word_count %}· {{ content.word_count }} words{% endif %}
+        {% if content.tweet_count %}· {{ content.tweet_count }} tweets{% endif %}
+      </p>
+
+      <hr />
+
+      <!-- Content display: Twitter shows parsed tweets -->
+      {% if content.platform.value == 'twitter' %}
+        <div id="tweetDisplay">
+          <p class="text-muted small mb-2"><i class="bi bi-twitter-x"></i> Thread preview:</p>
+          {% set tweets = content.body | tojson %}
+          <div id="tweetList"></div>
+          <script>
+            try {
+              const tweets = JSON.parse({{ content.body | tojson }});
+              const container = document.getElementById('tweetList');
+              tweets.forEach((tweet, i) => {
+                container.innerHTML += `
+                  <div class="border rounded-3 p-3 mb-2" style="font-size:.875rem">
+                    <span class="badge bg-light text-muted me-2">${i+1}</span>${tweet}
+                    <div class="text-end text-muted mt-1" style="font-size:.7rem">${tweet.length}/280 chars</div>
+                  </div>`;
+              });
+            } catch(e) {
+              document.getElementById('tweetList').innerText = {{ content.body | tojson }};
+            }
+          </script>
+        </div>
+      {% else %}
+        <div style="white-space: pre-wrap; font-size: .875rem; line-height: 1.7">{{ content.body }}</div>
+        {% if content.hashtags %}
+          <div class="mt-3 p-2 bg-light rounded" style="font-size:.8rem; color: #4338ca">
+            {{ content.hashtags }}
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Edit form -->
+    <div class="bg-white border rounded-3 p-4 mt-3">
+      <h6 class="fw-bold mb-3">Edit Content</h6>
+      <form id="editForm">
+        <div class="mb-3">
+          <label class="form-label fw-semibold small">Body</label>
+          <textarea class="form-control font-monospace" name="body" rows="10"
+            style="font-size:.8rem">{{ content.body }}</textarea>
+        </div>
+        {% if content.platform.value == 'linkedin' %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold small">Hashtags</label>
+          <input type="text" class="form-control" name="hashtags"
+            value="{{ content.hashtags or '' }}" style="font-size:.85rem" />
+        </div>
+        {% endif %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold small">Reviewer Notes</label>
+          <textarea class="form-control" name="reviewer_notes" rows="2"
+            style="font-size:.8rem">{{ content.reviewer_notes or '' }}</textarea>
+        </div>
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="saveEdits()">
+          <i class="bi bi-floppy"></i> Save Changes
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Sidebar Actions ────────────────────────────────────── -->
+  <div class="col-lg-4">
+    <div class="bg-white border rounded-3 p-4 mb-3">
+      <h6 class="fw-bold mb-3">Actions</h6>
+
+      {% if content.status.value in ['pending_review', 'draft'] %}
+      <button class="btn btn-success w-100 mb-2" onclick="approveContent()">
+        <i class="bi bi-check-circle"></i> Approve
+      </button>
+      <button class="btn btn-outline-danger w-100 mb-2" onclick="rejectContent()">
+        <i class="bi bi-x-circle"></i> Reject
+      </button>
+      {% elif content.status.value == 'approved' %}
+      <div class="alert alert-success py-2 small">
+        <i class="bi bi-check-circle-fill"></i> Content approved
+      </div>
+      {% elif content.status.value == 'rejected' %}
+      <div class="alert alert-danger py-2 small">
+        <i class="bi bi-x-circle-fill"></i> Content rejected
+      </div>
+      {% endif %}
+
+      {% if content.status.value in ['approved', 'scheduled'] %}
+      <button class="btn btn-primary w-100 mb-2" onclick="pushToBuffer()">
+        <i class="bi bi-send"></i> Push to Buffer
+      </button>
+      {% endif %}
+
+      <a href="/" class="btn btn-outline-secondary w-100">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Scheduling -->
+    {% if content.status.value in ['approved', 'scheduled'] %}
+    <div class="bg-white border rounded-3 p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-calendar3"></i> Schedule</h6>
+      <div class="mb-2">
+        <label class="form-label small fw-semibold">Post at (UTC)</label>
+        <input type="datetime-local" class="form-control form-control-sm" id="scheduleTime"
+          value="{{ content.scheduled_for.strftime('%Y-%m-%dT%H:%M') if content.scheduled_for else '' }}" />
+      </div>
+      <button class="btn btn-sm btn-outline-primary w-100" onclick="saveSchedule()">
+        <i class="bi bi-clock"></i> Set Schedule
+      </button>
+    </div>
+    {% endif %}
+
+    <!-- Metadata -->
+    <div class="bg-white border rounded-3 p-4">
+      <h6 class="fw-bold mb-3">Metadata</h6>
+      <table class="table table-sm" style="font-size:.75rem">
+        <tr><td class="text-muted">ID</td><td>#{{ content.id }}</td></tr>
+        <tr><td class="text-muted">Platform</td><td>{{ content.platform.value }}</td></tr>
+        <tr><td class="text-muted">Pillar</td><td>{{ content.content_pillar.value }}</td></tr>
+        <tr><td class="text-muted">Source</td><td>{{ content.source_type }}</td></tr>
+        {% if content.prompt_tokens %}
+        <tr><td class="text-muted">Tokens in</td><td>{{ content.prompt_tokens }}</td></tr>
+        <tr><td class="text-muted">Tokens out</td><td>{{ content.completion_tokens }}</td></tr>
+        {% endif %}
+        {% if content.buffer_update_id %}
+        <tr><td class="text-muted">Buffer ID</td><td><code>{{ content.buffer_update_id }}</code></td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const contentId = {{ content.id }};
+
+  async function saveEdits() {
+    const form = document.getElementById('editForm');
+    const payload = {
+      body: form.body.value,
+      reviewer_notes: form.reviewer_notes?.value || null
+    };
+    const resp = await fetch(`/api/content/${contentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (resp.ok) { alert('Saved!'); location.reload(); }
+    else alert('Save failed: ' + (await resp.text()));
+  }
+
+  async function approveContent() {
+    const resp = await fetch(`/api/content/${contentId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (resp.ok) location.reload();
+    else alert('Approval failed: ' + (await resp.text()));
+  }
+
+  async function rejectContent() {
+    const notes = prompt('Reason for rejection:') ?? '';
+    const resp = await fetch(`/api/content/${contentId}/reject?notes=${encodeURIComponent(notes)}`, {
+      method: 'POST'
+    });
+    if (resp.ok) location.reload();
+    else alert('Rejection failed: ' + (await resp.text()));
+  }
+
+  async function saveSchedule() {
+    const time = document.getElementById('scheduleTime').value;
+    if (!time) return alert('Please set a date/time');
+    const resp = await fetch(`/api/content/${contentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scheduled_for: new Date(time).toISOString() })
+    });
+    if (resp.ok) { alert('Schedule saved!'); location.reload(); }
+    else alert('Failed: ' + (await resp.text()));
+  }
+
+  async function pushToBuffer() {
+    if (!confirm('Push this content to Buffer for scheduling?')) return;
+    const resp = await fetch('/api/export/buffer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([contentId])
+    });
+    const data = await resp.json();
+    const result = data.results?.[0];
+    if (result?.success) {
+      alert(`Pushed to Buffer! Update ID: ${result.buffer_update_id}`);
+      location.reload();
+    } else {
+      alert('Buffer push failed: ' + (result?.error || 'Unknown error'));
+    }
+  }
+</script>
+{% endblock %}

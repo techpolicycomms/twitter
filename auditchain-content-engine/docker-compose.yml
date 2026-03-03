@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: content-engine-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-auditchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-content_engine}
+    ports:
+      - "5433:5432"   # Use 5433 to avoid conflict with main auditchain DB
+    volumes:
+      - content_engine_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auditchain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: content-engine-app
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-auditchain}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-content_engine}
+      SYNC_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-auditchain}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-content_engine}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./content-calendar.csv:/app/content-calendar.csv:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+
+  # Optional: run cron jobs via scheduler (separate worker)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: content-engine-scheduler
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-auditchain}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-content_engine}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./content-calendar.csv:/app/content-calendar.csv:ro
+    command: python -c "
+      import asyncio
+      from app.scheduler.tasks import create_scheduler
+      from app.database import create_all_tables
+      async def main():
+          await create_all_tables()
+          s = create_scheduler()
+          s.start()
+          import signal
+          loop = asyncio.get_event_loop()
+          loop.run_forever()
+      asyncio.run(main())
+    "
+    profiles:
+      - scheduler  # Start with: docker-compose --profile scheduler up
+
+volumes:
+  content_engine_pgdata:

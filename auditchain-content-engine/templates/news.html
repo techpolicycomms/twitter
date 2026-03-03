@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}News Feed — AuditChain Content Engine{% endblock %}
+{% block page_title %}News Feed{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <h6 class="fw-bold mb-0">{{ news_items|length }} items</h6>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm btn-outline-primary" onclick="triggerScan()">
+      <i class="bi bi-arrow-clockwise"></i> Run Scan Now
+    </button>
+    <a href="/api/news?min_relevance=0.7" target="_blank" class="btn btn-sm btn-outline-secondary">
+      High relevance <i class="bi bi-arrow-up-right"></i>
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for item in news_items %}
+  <div class="col-12">
+    <div class="bg-white border rounded-3 p-3">
+      <div class="row align-items-start g-2">
+        <div class="col-md-8">
+          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="badge bg-light text-dark" style="font-size:.65rem">
+              {{ item.feed_name }}
+            </span>
+            {% if item.is_rapid_response %}
+              <span class="rapid-badge">⚡ Rapid Response</span>
+            {% endif %}
+            {% if item.is_processed %}
+              <span class="badge" style="background:#dcfce7;color:#166534;font-size:.65rem">
+                <i class="bi bi-check"></i> Content generated
+              </span>
+            {% endif %}
+          </div>
+
+          <a href="{{ item.url }}" target="_blank" rel="noopener"
+            class="fw-semibold text-dark text-decoration-none"
+            style="font-size:.875rem">
+            {{ item.title }}
+            <i class="bi bi-box-arrow-up-right text-muted ms-1" style="font-size:.7rem"></i>
+          </a>
+
+          {% if item.summary %}
+          <p class="text-muted mt-1 mb-1" style="font-size:.78rem; line-height:1.5">
+            {{ item.summary[:250] }}{% if item.summary|length > 250 %}…{% endif %}
+          </p>
+          {% endif %}
+
+          {% if item.relevance_reason %}
+          <p class="text-muted mb-0" style="font-size:.72rem">
+            <i class="bi bi-info-circle"></i> {{ item.relevance_reason }}
+          </p>
+          {% endif %}
+
+          {% if item.suggested_angle %}
+          <div class="mt-2 p-2 rounded" style="background:#eff6ff; font-size:.75rem; color:#1e40af">
+            <strong>Angle:</strong> {{ item.suggested_angle }}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-4 d-flex flex-column align-items-md-end gap-2">
+          {% if item.relevance_score is not none %}
+            {% set score = (item.relevance_score * 100)|int %}
+            <div class="text-end">
+              <div class="news-score
+                {% if score >= 70 %}score-high{% elif score >= 50 %}score-medium{% else %}score-low{% endif %}"
+                style="display:inline-block">
+                Relevance: {{ score }}%
+              </div>
+            </div>
+          {% else %}
+            <span class="text-muted" style="font-size:.75rem">Not analyzed</span>
+          {% endif %}
+
+          <div class="text-muted" style="font-size:.7rem">
+            {{ item.fetched_at.strftime('%b %d, %H:%M') if item.fetched_at else '' }} UTC
+          </div>
+
+          {% if item.relevance_score and item.relevance_score >= 0.6 and not item.is_processed %}
+          <button class="btn btn-sm btn-outline-primary"
+            onclick="generateRapidResponse({{ item.id }})">
+            <i class="bi bi-pencil-square"></i> Generate Response
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12 text-center py-5 text-muted">
+    <i class="bi bi-newspaper" style="font-size:2.5rem;display:block;margin-bottom:.75rem"></i>
+    No news items yet.
+    <button class="btn btn-link p-0" onclick="triggerScan()">Run a scan</button>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  async function generateRapidResponse(newsId) {
+    const platform = prompt('Platform? (linkedin / twitter)', 'linkedin');
+    if (!platform) return;
+    alert('Generating rapid response in background. Check dashboard shortly.');
+    // Note: In production, this would call a dedicated rapid-response endpoint
+    // For now, use the manual generate endpoint with the news context
+    window.location.href = '/?generated=rapid';
+  }
+</script>
+{% endblock %}

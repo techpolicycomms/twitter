@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AuditChain Content Engine{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ── Stats Row ──────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  {% set stat_cards = [
+    ('Pending Review', stats.pending_review, 'bi-hourglass-split', '#f59e0b'),
+    ('Approved', stats.approved, 'bi-check-circle', '#16a34a'),
+    ('Scheduled', stats.scheduled, 'bi-calendar-check', '#4338ca'),
+    ('Published', stats.published, 'bi-send-check', '#0891b2'),
+    ('News Today', stats.news_items_today, 'bi-newspaper', '#7c3aed'),
+    ('Rapid Responses', stats.rapid_responses_pending, 'bi-lightning-charge', '#dc2626'),
+  ] %}
+  {% for label, value, icon, color in stat_cards %}
+  <div class="col-6 col-md-4 col-xl-2">
+    <div class="stat-card">
+      <i class="bi {{ icon }}" style="color:{{ color }};font-size:1.4rem"></i>
+      <div class="stat-value mt-2" style="color:{{ color }}">{{ value }}</div>
+      <div class="stat-label">{{ label }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-4">
+
+  <!-- ── Pending Content ──────────────────────────────────── -->
+  <div class="col-lg-7">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h6 class="fw-bold mb-0">Pending Review</h6>
+      <a href="/api/content?status=pending_review" class="btn btn-sm btn-outline-secondary">
+        View all <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+
+    {% if pending_content %}
+      {% for item in pending_content %}
+      <div class="content-card">
+        <div class="d-flex align-items-start gap-2">
+          <div class="flex-grow-1" style="min-width:0">
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+              <span class="badge-platform badge-{{ item.platform.value }}">
+                {{ item.platform.value }}
+              </span>
+              <span class="text-muted" style="font-size:.7rem">
+                {{ item.content_pillar.value }}
+              </span>
+              {% if item.source_type == 'rapid_response' %}
+                <span class="rapid-badge">⚡ Rapid Response</span>
+              {% endif %}
+            </div>
+            <div class="fw-semibold text-truncate" style="font-size:.875rem">
+              {{ item.topic }}
+            </div>
+            <div class="text-muted mt-1" style="font-size:.75rem">
+              {% if item.word_count %}{{ item.word_count }} words · {% endif %}
+              {% if item.tweet_count %}{{ item.tweet_count }} tweets · {% endif %}
+              {{ item.created_at.strftime('%b %d, %H:%M') if item.created_at else '' }} UTC
+            </div>
+          </div>
+          <div class="d-flex gap-1 flex-shrink-0">
+            <a href="/content/{{ item.id }}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-eye"></i>
+            </a>
+            <button class="btn btn-sm btn-success"
+              onclick="approveContent({{ item.id }})">
+              <i class="bi bi-check-lg"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger"
+              onclick="rejectContent({{ item.id }})">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-check2-all" style="font-size:2.5rem; display:block;margin-bottom:.75rem"></i>
+        All caught up — no pending content
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ── News Feed ─────────────────────────────────────────── -->
+  <div class="col-lg-5">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h6 class="fw-bold mb-0">Latest News</h6>
+      <a href="/news" class="btn btn-sm btn-outline-secondary">
+        All news <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+
+    {% if news_items %}
+      {% for item in news_items %}
+      <div class="content-card p-3">
+        <div class="d-flex align-items-start gap-2">
+          <div class="flex-grow-1" style="min-width:0">
+            <a href="{{ item.url }}" target="_blank" rel="noopener"
+              class="fw-semibold text-dark text-decoration-none"
+              style="font-size:.8rem; display:block"
+              title="{{ item.title }}">
+              {{ item.title[:80] }}{% if item.title|length > 80 %}…{% endif %}
+            </a>
+            <div class="text-muted mt-1" style="font-size:.7rem">
+              {{ item.feed_name }}
+            </div>
+          </div>
+          <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
+            {% if item.relevance_score is not none %}
+              {% set score = (item.relevance_score * 100)|int %}
+              <span class="news-score
+                {% if score >= 70 %}score-high{% elif score >= 50 %}score-medium{% else %}score-low{% endif %}">
+                {{ score }}%
+              </span>
+            {% endif %}
+            {% if item.is_rapid_response %}
+              <span class="rapid-badge">⚡</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-newspaper" style="font-size:2rem; display:block; margin-bottom:.5rem"></i>
+        No news items yet. <a href="#" onclick="triggerScan();return false">Run a scan</a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  async function approveContent(id) {
+    if (!confirm('Approve this content?')) return;
+    const resp = await fetch(`/api/content/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (resp.ok) location.reload();
+    else alert('Approval failed: ' + (await resp.text()));
+  }
+
+  async function rejectContent(id) {
+    const notes = prompt('Reason for rejection (optional):') ?? '';
+    const resp = await fetch(`/api/content/${id}/reject?notes=${encodeURIComponent(notes)}`, {
+      method: 'POST'
+    });
+    if (resp.ok) location.reload();
+    else alert('Rejection failed: ' + (await resp.text()));
+  }
+</script>
+{% endblock %}
