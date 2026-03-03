@@ -1,0 +1,129 @@
+// AuditChain Database Schema
+// Prisma ORM schema for PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum Role {
+  ADMIN
+  AUDITOR
+  CLIENT
+}
+
+enum AuditStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================
+// Models
+// ============================================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  industry  String
+  website   String?
+  users     User[]
+  audits    Audit[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizations")
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  passwordHash  String
+  role          Role         @default(CLIENT)
+  walletAddress String?
+  firstName     String?
+  lastName      String?
+  organization  Organization @relation(fields: [orgId], references: [id])
+  orgId         String
+  refreshTokens RefreshToken[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model Audit {
+  id              String       @id @default(cuid())
+  status          AuditStatus  @default(PENDING)
+  modelHash       String
+  modelType       String       // e.g. "sklearn", "onnx", "api"
+  modelName       String
+  modelVersion    String?
+  scope           Json         // Which checks to run: { fairness, explainability, robustness }
+  fairnessResult  Json?        // Results from fairness analysis
+  explainResult   Json?        // SHAP/LIME results
+  robustResult    Json?        // Robustness test results
+  trustScore      Int?         // Composite 0-100 score
+  errorMessage    String?      // Error details if status = FAILED
+  certificate     Certificate?
+  organization    Organization @relation(fields: [orgId], references: [id])
+  orgId           String
+  submittedById   String
+  submittedAt     DateTime     @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  updatedAt       DateTime     @updatedAt
+
+  @@index([orgId])
+  @@index([modelHash])
+  @@index([status])
+  @@map("audits")
+}
+
+model Certificate {
+  id          String    @id @default(cuid())
+  tokenId     Int       @unique  // On-chain NFT token ID
+  txHash      String             // Blockchain transaction hash
+  ipfsHash    String             // IPFS CID of the full PDF report
+  isRevoked   Boolean   @default(false)
+  revokedAt   DateTime?
+  revokedBy   String?            // Wallet address that revoked
+  revokeReason String?
+  audit       Audit     @relation(fields: [auditId], references: [id])
+  auditId     String    @unique
+  issuedAt    DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("certificates")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  auditId     String   @unique
+  pdfUrl      String?           // URL to generated PDF
+  ipfsHash    String?           // IPFS CID for decentralized storage
+  metadata    Json              // Report metadata (title, version, etc.)
+  generatedAt DateTime @default(now())
+
+  @@map("reports")
+}

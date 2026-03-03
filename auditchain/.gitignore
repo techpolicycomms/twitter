@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+artifacts/
+cache/
+typechain-types/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+.venv/
+venv/
+
+# Database
+*.sqlite
+*.db
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+packages/audit-engine/uploads/
+
+# ML models (large binary files)
+*.pkl
+*.onnx
+*.h5
+*.joblib
+sample-model/loan_classifier.pkl
+sample-model/loan_dataset.csv
+
+# Prisma
+packages/api/src/models/migrations/
+
+# Hardhat
+packages/contracts/deployments/

@@ -1,0 +1,102 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: auditchain-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-auditchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-auditchain_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-auditchain}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auditchain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: auditchain-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    container_name: auditchain-api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-auditchain}:${POSTGRES_PASSWORD:-auditchain_secret}@postgres:5432/${POSTGRES_DB:-auditchain}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-supersecretrefreshkey}
+      AUDIT_ENGINE_URL: http://audit-engine:8001
+      BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL:-http://localhost:8545}
+      AUDITOR_PRIVATE_KEY: ${AUDITOR_PRIVATE_KEY}
+      AUDIT_CERTIFICATE_ADDRESS: ${AUDIT_CERTIFICATE_ADDRESS}
+      AUDIT_REGISTRY_ADDRESS: ${AUDIT_REGISTRY_ADDRESS}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      audit-engine:
+        condition: service_started
+    volumes:
+      - ./packages/api:/app
+      - /app/node_modules
+
+  web:
+    build:
+      context: ./packages/web
+      dockerfile: Dockerfile
+    container_name: auditchain-web
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:3001}
+      NEXT_PUBLIC_CHAIN_ID: ${NEXT_PUBLIC_CHAIN_ID:-31337}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./packages/web:/app
+      - /app/node_modules
+      - /app/.next
+
+  audit-engine:
+    build:
+      context: ./packages/audit-engine
+      dockerfile: Dockerfile
+    container_name: auditchain-audit-engine
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-auditchain}:${POSTGRES_PASSWORD:-auditchain_secret}@postgres:5432/${POSTGRES_DB:-auditchain}
+    ports:
+      - "8001:8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./packages/audit-engine:/app
+      - model_uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  redis_data:
+  model_uploads:
