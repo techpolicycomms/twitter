@@ -1,0 +1,100 @@
+{% extends "base_email.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block header_title %}RegWatch Monthly Intelligence{% endblock %}
+{% block header_subtitle %}{{ month_year }} · AI Regulation Across AuditChain's Markets{% endblock %}
+
+{% block content %}
+
+<!-- Stats summary -->
+<div class="section">
+  <div class="stats-grid">
+    <div class="stat-box stat-high">
+      <span class="stat-number">{{ high_items|length }}</span>
+      <span class="stat-label">High Impact</span>
+    </div>
+    <div class="stat-box stat-medium">
+      <span class="stat-number">{{ medium_items|length }}</span>
+      <span class="stat-label">Medium Impact</span>
+    </div>
+    <div class="stat-box stat-total">
+      <span class="stat-number">{{ total_count }}</span>
+      <span class="stat-label">Total Items Tracked</span>
+    </div>
+  </div>
+</div>
+
+<!-- Editor's Introduction -->
+<div class="section">
+  <div class="section-header">📋 Editor's Note</div>
+  <div style="font-size: 15px; color: #374151; line-height: 1.8;">
+    {{ intro_text | replace('\n\n', '</p><p style="margin-top: 14px;">') | replace('\n', '<br>') }}
+  </div>
+</div>
+
+<!-- Highlights: HIGH impact -->
+{% if high_items %}
+<div class="section">
+  <div class="section-header" style="color: #dc2626; border-color: #fecaca;">🔴 Month's Critical Developments</div>
+  {% for item in high_items %}
+  <div class="reg-item high">
+    <a href="{{ item.url }}" class="item-title">{{ item.title }}</a>
+    <div class="item-meta">
+      <span class="region-tag">{{ item.region }}</span>
+      &nbsp;{{ item.source_name }}
+      {% if item.published_at %} · {{ item.published_at.strftime('%B %d, %Y') }}{% endif %}
+      &nbsp;· <span class="badge badge-high">HIGH</span>
+    </div>
+    {% if item.ai_summary %}
+    <div class="item-summary">{{ item.ai_summary }}</div>
+    {% endif %}
+    {% set actions = render_action_items(item) %}
+    {% if actions %}
+    <div class="action-items">
+      <div class="action-label">Action Items for AuditChain:</div>
+      <ul>{% for a in actions %}<li>{{ a }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- By Region -->
+{% for region, items in by_region.items() %}
+<div class="section">
+  <div class="section-header">{{ region }} ({{ items|length }} item{% if items|length != 1 %}s{% endif %})</div>
+  {% for item in items %}
+  <div class="reg-item {{ item.impact_level.value|lower }}" style="margin-bottom: 14px;">
+    <a href="{{ item.url }}" class="item-title" style="font-size: 14px;">{{ item.title }}</a>
+    <div class="item-meta">
+      {{ item.source_name }}
+      {% if item.published_at %} · {{ item.published_at.strftime('%b %d') }}{% endif %}
+      &nbsp;·
+      {% if item.impact_level.value == 'HIGH' %}
+        <span class="badge badge-high">HIGH</span>
+      {% elif item.impact_level.value == 'MEDIUM' %}
+        <span class="badge badge-medium">MEDIUM</span>
+      {% else %}
+        <span class="badge badge-low">LOW</span>
+      {% endif %}
+    </div>
+    {% if item.ai_summary %}
+    <div class="item-summary" style="font-size: 13px;">{{ item.ai_summary }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<!-- Coverage note -->
+<div class="section" style="background: #f8fafc; border-top: none;">
+  <p style="font-size: 13px; color: #64748b; text-align: center;">
+    Monitoring period: {{ period_start.strftime('%B %d') }}–{{ period_end.strftime('%B %d, %Y') }} ·
+    Sources: EU OJ, EC AI Office, MeitY, PRS India, NITDA, NDPC, ICT Authority Kenya, ODPC Kenya,
+    DCDT South Africa, Information Regulator SA, African Union, MINICT Rwanda, OECD AI Observatory, ITU
+  </p>
+</div>
+
+{% endblock %}

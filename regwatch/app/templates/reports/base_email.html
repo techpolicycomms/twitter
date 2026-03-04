@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}RegWatch{% endblock %}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+      line-height: 1.6;
+    }
+    .email-wrapper {
+      max-width: 700px;
+      margin: 24px auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.08);
+    }
+    /* Header */
+    .email-header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 28px 32px;
+      color: white;
+    }
+    .email-header .brand {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    .email-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+    .email-header .subtitle {
+      font-size: 13px;
+      color: #64748b;
+    }
+    /* Impact badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-high { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .badge-medium { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+    .badge-low { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    /* Sections */
+    .section {
+      padding: 24px 32px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .section-header {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    /* Regulation item card */
+    .reg-item {
+      margin-bottom: 20px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .reg-item.high { border-left: 4px solid #dc2626; }
+    .reg-item.medium { border-left: 4px solid #f59e0b; }
+    .reg-item.low { border-left: 4px solid #10b981; }
+    .reg-item .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .reg-item .item-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1e293b;
+      text-decoration: none;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .reg-item .item-meta {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .reg-item .item-summary {
+      font-size: 14px;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+    .reg-item .action-items {
+      font-size: 13px;
+    }
+    .reg-item .action-items .action-label {
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 4px;
+    }
+    .reg-item .action-items ul {
+      padding-left: 16px;
+      color: #4b5563;
+    }
+    .reg-item .action-items ul li {
+      margin-bottom: 3px;
+    }
+    /* Region tag */
+    .region-tag {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      padding: 1px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    /* Summary stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-box {
+      text-align: center;
+      padding: 14px 8px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    .stat-box .stat-number {
+      font-size: 28px;
+      font-weight: 800;
+      display: block;
+    }
+    .stat-box .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+    }
+    .stat-high .stat-number { color: #dc2626; }
+    .stat-medium .stat-number { color: #d97706; }
+    .stat-total .stat-number { color: #1e293b; }
+    /* Footer */
+    .email-footer {
+      background: #1e293b;
+      padding: 20px 32px;
+      color: #64748b;
+      font-size: 12px;
+      text-align: center;
+    }
+    .email-footer a { color: #94a3b8; }
+  </style>
+</head>
+<body>
+<div class="email-wrapper">
+  <div class="email-header">
+    <div class="brand">AuditChain · RegWatch</div>
+    <h1>{% block header_title %}{% endblock %}</h1>
+    <div class="subtitle">{% block header_subtitle %}{% endblock %}</div>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  <div class="email-footer">
+    <p>RegWatch is an AI regulatory intelligence service by <a href="https://auditchain.ai">AuditChain</a>.</p>
+    <p style="margin-top: 6px;">
+      <a href="https://auditchain.ai/regwatch/unsubscribe">Unsubscribe</a> ·
+      <a href="https://auditchain.ai/privacy">Privacy Policy</a> ·
+      <a href="https://auditchain.ai/regwatch">View Online</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>

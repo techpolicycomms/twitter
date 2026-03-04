@@ -1,0 +1,1 @@
+"""RegWatch FastAPI routes package."""

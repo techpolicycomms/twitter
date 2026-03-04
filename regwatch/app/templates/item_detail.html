@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ item.title[:60] }}{% endblock %}
+{% block page_title %}Item Detail{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="/" style="color:#2563eb;font-size:13px;">← Back to Dashboard</a>
+</div>
+
+<div class="bg-white rounded-3 border p-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+    <h2 style="font-size:20px;font-weight:700;color:#1e293b;flex:1;">{{ item.title }}</h2>
+    <div>
+      {% if item.impact_level %}
+        {% set il = item.impact_level.value %}
+        <span class="badge fs-6 rounded-pill badge-impact-{{ il|lower }}">{{ il }} IMPACT</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Meta table -->
+  <table class="table table-sm mb-4" style="font-size:13px;">
+    <tr>
+      <td style="color:#64748b;width:140px;font-weight:600;">Region</td>
+      <td>{{ item.region }}</td>
+    </tr>
+    <tr>
+      <td style="color:#64748b;font-weight:600;">Source</td>
+      <td>{{ item.source_name }}</td>
+    </tr>
+    <tr>
+      <td style="color:#64748b;font-weight:600;">URL</td>
+      <td><a href="{{ item.url }}" target="_blank" style="word-break:break-all;">{{ item.url }}</a></td>
+    </tr>
+    {% if item.published_at %}
+    <tr>
+      <td style="color:#64748b;font-weight:600;">Published</td>
+      <td>{{ item.published_at.strftime('%B %d, %Y') }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+      <td style="color:#64748b;font-weight:600;">Scraped</td>
+      <td>{{ item.scraped_at.strftime('%B %d, %Y %H:%M UTC') }}</td>
+    </tr>
+    {% if item.relevance_score %}
+    <tr>
+      <td style="color:#64748b;font-weight:600;">Relevance</td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          <div style="background:#e5e7eb;border-radius:99px;height:8px;width:120px;overflow:hidden;">
+            <div style="background:#2563eb;height:100%;width:{{ '%.0f'|format(item.relevance_score * 100) }}%;border-radius:99px;"></div>
+          </div>
+          <span>{{ '%.0f'|format(item.relevance_score * 100) }}%</span>
+        </div>
+      </td>
+    </tr>
+    {% endif %}
+    <tr>
+      <td style="color:#64748b;font-weight:600;">Alert sent</td>
+      <td>{% if item.alert_sent %}✅ {{ item.alert_sent_at.strftime('%b %d %H:%M UTC') if item.alert_sent_at }}{% else %}No{% endif %}</td>
+    </tr>
+  </table>
+
+  <!-- Summary -->
+  {% if item.ai_summary %}
+  <div class="mb-4">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:8px;">AI Summary</div>
+    <p style="color:#374151;font-size:15px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:16px;border-left:4px solid #2563eb;">{{ item.ai_summary }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Action items -->
+  {% if action_items %}
+  <div class="mb-4">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:8px;">Action Items for AuditChain</div>
+    <ul style="padding-left:20px;color:#374151;">
+      {% for a in action_items %}
+      <li style="margin-bottom:8px;line-height:1.6;">{{ a }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Keywords -->
+  {% if keywords %}
+  <div>
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:8px;">Keywords</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for kw in keywords %}
+      <span style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:20px;padding:3px 12px;font-size:12px;">{{ kw }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

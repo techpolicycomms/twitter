@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Regulatory Intelligence{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat-card sc-high">
+    <div class="stat-icon">🚨</div>
+    <span class="stat-num">{{ stats.get('HIGH', 0) }}</span>
+    <div class="stat-lbl">High Impact</div>
+    <div class="stat-sub">Requires immediate attention</div>
+  </div>
+  <div class="stat-card sc-med">
+    <div class="stat-icon">⚠️</div>
+    <span class="stat-num">{{ stats.get('MEDIUM', 0) }}</span>
+    <div class="stat-lbl">Medium Impact</div>
+    <div class="stat-sub">Monitor and plan response</div>
+  </div>
+  <div class="stat-card sc-low">
+    <div class="stat-icon">📌</div>
+    <span class="stat-num">{{ stats.get('LOW', 0) }}</span>
+    <div class="stat-lbl">Low Impact</div>
+    <div class="stat-sub">General awareness</div>
+  </div>
+  <div class="stat-card sc-tot">
+    <div class="stat-icon">📊</div>
+    <span class="stat-num">{{ total }}</span>
+    <div class="stat-lbl">Filtered Items</div>
+    {% if last_run %}
+    <div class="stat-sub">Last scrape: {{ last_run.started_at.strftime('%b %d %H:%M') }} UTC</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if stats.get('HIGH', 0) > 0 and not filter_impact and not filter_region %}
+<div style="background:var(--high-bg);border:1px solid var(--high-br);border-radius:var(--r-sm);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:13px;">
+  🚨 <strong style="color:var(--high);">{{ stats.get('HIGH',0) }} HIGH impact item{% if stats.get('HIGH',0)!=1 %}s{% endif %} detected.</strong>
+  &nbsp;Immediate Slack + email alerts have been dispatched.
+</div>
+{% endif %}
+
+<!-- Filters -->
+<div class="filter-bar">
+  <span class="filter-lbl">Impact:</span>
+  <a href="/{% if filter_region %}?region={{ filter_region }}{% endif %}"
+     class="fchip {% if not filter_impact %}on{% endif %}">All</a>
+  {% for imp, label in [('HIGH','🔴 High'),('MEDIUM','🟡 Medium'),('LOW','🟢 Low')] %}
+  <a href="?impact={{ imp }}{% if filter_region %}&region={{ filter_region }}{% endif %}"
+     class="fchip {% if filter_impact == imp %}on{% endif %}">{{ label }}</a>
+  {% endfor %}
+  <div class="fsep"></div>
+  <span class="filter-lbl">Region:</span>
+  {% for r in regions %}
+  <a href="?region={{ r }}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}"
+     class="fchip {% if filter_region == r %}on-reg{% endif %}">{{ r }}</a>
+  {% endfor %}
+  {% if filter_region or filter_impact %}
+  <div class="fsep"></div>
+  <a href="/" class="fchip" style="color:var(--high);">✕ Clear</a>
+  {% endif %}
+</div>
+
+<!-- Items -->
+{% if items %}
+{% for item in items %}
+{% set ic = 'rc-h' if item.impact_level and item.impact_level.value=='HIGH' else ('rc-m' if item.impact_level and item.impact_level.value=='MEDIUM' else 'rc-l') %}
+<div class="reg-card {{ ic }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+    <a href="/item/{{ item.id }}" class="rc-title">{{ item.title }}</a>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      {% if item.impact_level %}
+        {% set il = item.impact_level.value %}
+        {% if il=='HIGH' %}<span class="badge-h">{{ il }}</span>
+        {% elif il=='MEDIUM' %}<span class="badge-m">{{ il }}</span>
+        {% else %}<span class="badge-l">{{ il }}</span>{% endif %}
+      {% endif %}
+      {% if item.relevance_score %}
+      <div class="score-pill">
+        <div class="score-track"><div class="score-fill" style="width:{{ '%.0f'|format(item.relevance_score*100) }}%;"></div></div>
+        <span>{{ '%.0f'|format(item.relevance_score*100) }}%</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="rc-meta">
+    <span class="region-chip">{{ item.region }}</span>
+    <span>{{ item.source_name }}</span>
+    {% if item.published_at %}<span>·</span><span>{{ item.published_at.strftime('%Y-%m-%d') }}</span>{% endif %}
+    {% if item.alert_sent %}<span>·</span><span style="color:var(--high);font-size:11px;">🔔 Alert sent</span>{% endif %}
+  </div>
+  {% if item.ai_summary %}<div class="rc-summary">{{ item.ai_summary }}</div>{% endif %}
+</div>
+{% endfor %}
+
+{% if total_pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}
+  <a href="?page={{ page-1 }}{% if filter_region %}&region={{ filter_region }}{% endif %}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}">‹</a>
+  {% endif %}
+  {% for p in range(1, total_pages+1) %}
+  <a href="?page={{ p }}{% if filter_region %}&region={{ filter_region }}{% endif %}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}"
+     class="{% if p==page %}cur{% endif %}">{{ p }}</a>
+  {% endfor %}
+  {% if page < total_pages %}
+  <a href="?page={{ page+1 }}{% if filter_region %}&region={{ filter_region }}{% endif %}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}">›</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">
+  <div class="ei">🔭</div>
+  <h4>No items yet</h4>
+  <p>Click <strong>Scrape Now</strong> in the sidebar to pull the latest regulatory content from all 14 monitored sources.</p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base_email.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block header_title %}Daily Regulatory Digest{% endblock %}
+{% block header_subtitle %}{{ period }} · AI Governance Across AuditChain's Markets{% endblock %}
+
+{% block content %}
+
+<!-- Stats summary -->
+<div class="section">
+  <div class="stats-grid">
+    <div class="stat-box stat-high">
+      <span class="stat-number">{{ high_items|length }}</span>
+      <span class="stat-label">High Impact</span>
+    </div>
+    <div class="stat-box stat-medium">
+      <span class="stat-number">{{ medium_items|length }}</span>
+      <span class="stat-label">Medium Impact</span>
+    </div>
+    <div class="stat-box stat-total">
+      <span class="stat-number">{{ total_count }}</span>
+      <span class="stat-label">Total Items</span>
+    </div>
+  </div>
+
+  {% if high_items %}
+  <div style="background: #fff5f5; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px;">
+    <strong style="color: #dc2626;">⚠ {{ high_items|length }} HIGH impact item{% if high_items|length != 1 %}s{% endif %} require{% if high_items|length == 1 %}s{% endif %} attention.</strong>
+    Immediate alerts have been sent via Slack and email.
+  </div>
+  {% endif %}
+</div>
+
+<!-- HIGH impact items -->
+{% if high_items %}
+<div class="section">
+  <div class="section-header">🔴 High Impact</div>
+  {% for item in high_items %}
+  <div class="reg-item high">
+    <a href="{{ item.url }}" class="item-title">{{ item.title }}</a>
+    <div class="item-meta">
+      <span class="region-tag">{{ item.region }}</span>
+      &nbsp;{{ item.source_name }}
+      {% if item.published_at %} · {{ item.published_at.strftime('%Y-%m-%d') }}{% endif %}
+      &nbsp;· <span class="badge badge-high">HIGH</span>
+    </div>
+    {% if item.ai_summary %}
+    <div class="item-summary">{{ item.ai_summary }}</div>
+    {% endif %}
+    {% set actions = render_action_items(item) %}
+    {% if actions %}
+    <div class="action-items">
+      <div class="action-label">Action Items for AuditChain:</div>
+      <ul>{% for a in actions %}<li>{{ a }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- MEDIUM impact items -->
+{% if medium_items %}
+<div class="section">
+  <div class="section-header">🟡 Medium Impact</div>
+  {% for item in medium_items %}
+  <div class="reg-item medium">
+    <a href="{{ item.url }}" class="item-title">{{ item.title }}</a>
+    <div class="item-meta">
+      <span class="region-tag">{{ item.region }}</span>
+      &nbsp;{{ item.source_name }}
+      {% if item.published_at %} · {{ item.published_at.strftime('%Y-%m-%d') }}{% endif %}
+      &nbsp;· <span class="badge badge-medium">MEDIUM</span>
+    </div>
+    {% if item.ai_summary %}
+    <div class="item-summary">{{ item.ai_summary }}</div>
+    {% endif %}
+    {% set actions = render_action_items(item) %}
+    {% if actions %}
+    <div class="action-items">
+      <div class="action-label">Action Items:</div>
+      <ul>{% for a in actions[:2] %}<li>{{ a }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- LOW impact items -->
+{% if low_items %}
+<div class="section">
+  <div class="section-header">🟢 Low Impact / Monitoring</div>
+  {% for item in low_items %}
+  <div class="reg-item low" style="padding: 10px 14px;">
+    <a href="{{ item.url }}" class="item-title" style="font-size: 14px;">{{ item.title }}</a>
+    <div class="item-meta">
+      <span class="region-tag">{{ item.region }}</span>
+      &nbsp;{{ item.source_name }}
+    </div>
+    {% if item.ai_summary %}
+    <div class="item-summary" style="font-size: 13px; color: #6b7280;">{{ item.ai_summary }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not high_items and not medium_items and not low_items %}
+<div class="section" style="text-align: center; color: #9ca3af; padding: 40px;">
+  <p style="font-size: 18px; margin-bottom: 8px;">✓ Quiet day</p>
+  <p>No significant regulatory activity detected in the past 24 hours.</p>
+</div>
+{% endif %}
+
+{% endblock %}
