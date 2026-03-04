@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Reports · Lexivant Watch{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block topbar_badge %}<span class="topbar-badge">◫ Reports</span>{% endblock %}
+{% block topbar_actions %}
+  <button class="btn btn-sm" onclick="lxAction('/api/reports/digest','Generating digest…','Digest ready')">📧 Digest</button>
+  <button class="btn btn-sm" onclick="lxAction('/api/reports/linkedin','Generating post…','Post ready')">💼 LinkedIn</button>
+  <button class="btn btn-primary btn-sm" onclick="lxAction('/api/reports/newsletter','Generating newsletter…','Newsletter ready')">📰 Newsletter</button>
+{% endblock %}
+
+{% block content %}
+
+{% if reports %}
+
+<!-- Type legend -->
+<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+  {% set type_info = {
+    'daily_digest': ('▦', 'Daily Digest', '#EFF6FF', '#1E40AF', '#BFDBFE'),
+    'weekly_linkedin': ('▤', 'LinkedIn Post', '#F0FDF4', '#15803D', '#BBF7D0'),
+    'monthly_newsletter': ('▨', 'Newsletter', '#FFFBEB', '#B45309', '#FDE68A'),
+  } %}
+  {% for key, (ico, lbl, bg, tc, bc) in type_info.items() %}
+  <div style="background:{{ bg }};color:{{ tc }};border:1px solid {{ bc }};border-radius:var(--r-sm);padding:6px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+    {{ ico }} {{ lbl }}
+  </div>
+  {% endfor %}
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;">
+{% for report in reports %}
+{% set t = report.report_type.value %}
+{% if t == 'daily_digest' %}
+  {% set r_ico, r_label, r_bg, r_tc, r_bc = '▦', 'Daily Digest', '#EFF6FF', '#1E40AF', '#BFDBFE' %}
+{% elif t == 'weekly_linkedin' %}
+  {% set r_ico, r_label, r_bg, r_tc, r_bc = '▤', 'LinkedIn Post', '#F0FDF4', '#15803D', '#BBF7D0' %}
+{% else %}
+  {% set r_ico, r_label, r_bg, r_tc, r_bc = '▨', 'Newsletter', '#FFFBEB', '#B45309', '#FDE68A' %}
+{% endif %}
+
+<div style="background:var(--lx-surface);border:1px solid var(--lx-border);border-radius:var(--r);padding:18px 22px;box-shadow:var(--sh-xs);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;transition:box-shadow .15s;">
+  <div style="flex:1;min-width:200px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+      <span style="background:{{ r_bg }};color:{{ r_tc }};border:1px solid {{ r_bc }};border-radius:var(--r-xs);padding:2px 9px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;">
+        {{ r_ico }} {{ r_label }}
+      </span>
+      {% if report.sent %}
+      <span style="font-size:11px;color:var(--lx-emerald);font-weight:600;">✓ Sent</span>
+      {% endif %}
+      <span style="font-size:11px;color:var(--lx-t3);">{{ report.created_at.strftime('%b %d, %Y %H:%M') }} UTC</span>
+    </div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:var(--lx-t1);margin-bottom:4px;">{{ report.title }}</div>
+    <div style="font-size:12px;color:var(--lx-t3);">
+      {{ report.item_count }} items ·
+      {{ report.period_start.strftime('%b %d') }}–{{ report.period_end.strftime('%b %d, %Y') }}
+      {% if report.input_tokens %} · {{ report.input_tokens + report.output_tokens }} tokens used{% endif %}
+    </div>
+  </div>
+  <a href="/reports/{{ report.id }}" class="btn btn-sm">View →</a>
+</div>
+
+{% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="es-icon">◫</div>
+  <h4>No reports generated yet</h4>
+  <p>Use the buttons above to generate your first daily digest, LinkedIn post, or monthly newsletter.</p>
+</div>
+{% endif %}
+
+{% endblock %}

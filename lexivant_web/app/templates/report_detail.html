@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ report.title[:55] }} · Lexivant Watch{% endblock %}
+{% block page_title %}Report{% endblock %}
+{% block topbar_badge %}<span class="topbar-badge">◫ Report</span>{% endblock %}
+{% block topbar_actions %}
+  <a href="/reports" class="btn">← Reports</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:900px;">
+
+  <div class="scard" style="margin-bottom:20px;">
+    <div class="scard-body" style="padding:28px 32px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--lx-t3);margin-bottom:8px;">
+        {{ report.report_type.value|replace('_',' ')|upper }}
+      </div>
+      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--lx-t1);margin-bottom:12px;">{{ report.title }}</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--lx-t3);">
+        <span>📅 {{ report.created_at.strftime('%B %d, %Y %H:%M UTC') }}</span>
+        <span>◈ {{ report.item_count }} items covered</span>
+        <span>📊 {{ report.period_start.strftime('%b %d') }}–{{ report.period_end.strftime('%b %d, %Y') }}</span>
+        {% if report.sent %}<span style="color:var(--lx-emerald);">✓ Sent</span>{% endif %}
+        {% if report.input_tokens %}<span>{{ report.input_tokens + report.output_tokens }} tokens</span>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if report.content_text %}
+  <div class="scard" style="margin-bottom:20px;">
+    <div class="scard-head">
+      <span class="scard-title">◈ Generated Content</span>
+      <button class="btn btn-sm" onclick="copyText()" id="copyBtn">Copy text</button>
+    </div>
+    <div class="scard-body">
+      <pre id="reportText" style="white-space:pre-wrap;font-family:'Inter',sans-serif;font-size:14px;color:var(--lx-t1);line-height:1.75;background:var(--lx-slate);border:1px solid var(--lx-border);border-radius:var(--r-sm);padding:20px;">{{ report.content_text }}</pre>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if report.content_html %}
+  <div class="scard">
+    <div class="scard-head">
+      <span class="scard-title">▦ Email Preview</span>
+      <span style="font-size:11px;color:var(--lx-t3);">Rendered HTML</span>
+    </div>
+    <div class="scard-body" style="padding:0;">
+      <iframe srcdoc="{{ report.content_html|e }}"
+              style="width:100%;height:620px;border:none;border-radius:0 0 var(--r) var(--r);"
+              sandbox="allow-same-origin"
+              title="Report preview"
+              loading="lazy"></iframe>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyText() {
+  const text = document.getElementById('reportText');
+  navigator.clipboard.writeText(text.textContent).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy text', 2500);
+  });
+}
+</script>
+{% endblock %}

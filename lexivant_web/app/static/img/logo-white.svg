@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" fill="none">
+  <path d="M28 4L50.4 17V43L28 56L5.6 43V17L28 4Z" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+  <path d="M20 18H25.5V42H38V47H20V18Z" fill="white" opacity="0.95"/>
+  <path d="M33 18L42 47H36.5L27.5 18H33Z" fill="white" opacity="0.45"/>
+  <text x="62" y="24" font-family="'Inter', 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="22" letter-spacing="-0.5" fill="white">LEXI</text>
+  <text x="117" y="24" font-family="'Inter', 'Helvetica Neue', Arial, sans-serif" font-weight="300" font-size="22" letter-spacing="-0.5" fill="rgba(255,255,255,0.75)">VANT</text>
+  <text x="62" y="42" font-family="'Inter', 'Helvetica Neue', Arial, sans-serif" font-weight="500" font-size="10" letter-spacing="2.5" fill="rgba(255,255,255,0.45)">INTELLIGENCE BEFORE IT'S LAW</text>
+</svg>

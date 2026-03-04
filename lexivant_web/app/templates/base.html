@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Lexivant Watch{% endblock %}</title>
+  <meta name="description" content="Lexivant Watch — Intelligence Before It's Law. Real-time AI regulatory monitoring across 14 global sources.">
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/lexivant.css">
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ════════════════════════════════════════════════ -->
+<nav class="sidebar" aria-label="Main navigation">
+  <div class="sb-brand">
+    <div class="sb-logo-row">
+      <div class="sb-hex">
+        <svg viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 4H7.5V18H14V21H4V4Z" fill="white" opacity=".95"/>
+          <path d="M11 4L16 21H12.5L7.5 4H11Z" fill="white" opacity=".4"/>
+        </svg>
+      </div>
+      <div class="sb-wordmark">
+        <span class="w1">Lexi</span><span class="w2">vant</span>
+      </div>
+    </div>
+    <div class="sb-tagline">Intelligence Before It's Law</div>
+  </div>
+
+  <div class="sb-section">Monitor</div>
+  <a href="/" class="sb-link {% if request.url.path == '/' %}active{% endif %}" aria-label="Dashboard">
+    <span class="ico">◉</span> Dashboard
+  </a>
+  <a href="/reports" class="sb-link {% if request.url.path.startswith('/reports') %}active{% endif %}" aria-label="Reports">
+    <span class="ico">◫</span> Reports
+  </a>
+  <a href="/docs" target="_blank" rel="noopener" class="sb-link" aria-label="API Documentation">
+    <span class="ico">◳</span> API Docs
+  </a>
+
+  <div class="sb-divider"></div>
+  <div class="sb-section">Run</div>
+  <a class="sb-link" onclick="lxAction('/api/scrape','Scraping 14 sources…','Scrape complete')" role="button" tabindex="0">
+    <span class="ico">⚡</span> Scrape Sources
+  </a>
+  <a class="sb-link" onclick="lxAction('/api/analyze','Analysing with Claude…','Analysis complete')" role="button" tabindex="0">
+    <span class="ico">◈</span> Run Analysis
+  </a>
+  <a class="sb-link" onclick="lxAction('/api/alerts/process','Dispatching HIGH alerts…','Alerts sent')" role="button" tabindex="0">
+    <span class="ico">◎</span> Send Alerts
+  </a>
+
+  <div class="sb-divider"></div>
+  <div class="sb-section">Generate</div>
+  <a class="sb-link" onclick="lxAction('/api/reports/digest','Generating daily digest…','Digest ready')" role="button" tabindex="0">
+    <span class="ico">▦</span> Daily Digest
+  </a>
+  <a class="sb-link" onclick="lxAction('/api/reports/linkedin','Generating LinkedIn post…','Post ready')" role="button" tabindex="0">
+    <span class="ico">▤</span> LinkedIn Post
+  </a>
+  <a class="sb-link" onclick="lxAction('/api/reports/newsletter','Generating newsletter…','Newsletter ready')" role="button" tabindex="0">
+    <span class="ico">▨</span> Newsletter
+  </a>
+
+  <div class="sb-footer">
+    <div class="sb-clock text-mono" id="lxClock" aria-live="polite">—</div>
+    <div class="sb-status">
+      <div class="pulse-dot" aria-hidden="true"></div>
+      Live monitoring active
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══════════════════════════════════════════════════ -->
+<div class="main">
+  <!-- Topbar -->
+  <header class="topbar" role="banner">
+    <div class="topbar-left">
+      <h1 class="topbar-title">{% block page_title %}Lexivant Watch{% endblock %}</h1>
+      {% block topbar_badge %}{% endblock %}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      {% block topbar_actions %}
+      <button class="btn btn-primary" onclick="lxAction('/api/scrape','Scraping sources…','Scrape complete')">
+        ⚡ Scrape Now
+      </button>
+      {% endblock %}
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="page" role="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<!-- ═══ TOASTS ══════════════════════════════════════════════════ -->
+<div id="lx-toasts" aria-live="assertive" aria-atomic="false"></div>
+
+<script>
+/* ── Clock ── */
+(function clock() {
+  const pad = n => String(n).padStart(2,'0');
+  function tick() {
+    const d = new Date();
+    const str = `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}  `
+              + `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+    document.getElementById('lxClock').textContent = str;
+  }
+  tick(); setInterval(tick, 1000);
+})();
+
+/* ── Toast system ── */
+function lxToast(title, sub, type='info') {
+  const icons = { info:'◈', ok:'✓', err:'✕' };
+  const cls   = { info:'', ok:'t-ok', err:'t-err' };
+  const el = document.createElement('div');
+  el.className = `lx-toast ${cls[type]||''}`;
+  el.setAttribute('role', 'status');
+  el.innerHTML = `<span class="ti">${icons[type]||'◈'}</span>
+    <div class="tm">
+      <div>${title}</div>
+      ${sub ? `<div class="tl">${sub}</div>` : ''}
+    </div>`;
+  const container = document.getElementById('lx-toasts');
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 4500);
+}
+
+/* ── API actions ── */
+async function lxAction(url, loadMsg, doneMsg) {
+  lxToast(loadMsg, url, 'info');
+  try {
+    const r = await fetch(url, { method: 'POST' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    lxToast(doneMsg || d.status, null, 'ok');
+  } catch(e) {
+    lxToast('Request failed', e.message, 'err');
+  }
+}
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

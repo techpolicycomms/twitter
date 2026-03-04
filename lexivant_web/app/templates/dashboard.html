@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Lexivant Watch{% endblock %}
+{% block page_title %}Regulatory Intelligence{% endblock %}
+{% block topbar_badge %}
+  <span class="topbar-badge">◉ Watch</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Stats ── -->
+<div class="stats-grid">
+
+  <div class="stat-card sc-h" data-icon="🚨">
+    <div class="stat-icon-wrap">🚨</div>
+    <span class="stat-num">{{ stats.get('HIGH', 0) }}</span>
+    <div class="stat-label">High Impact</div>
+    <div class="stat-sub">Immediate action required</div>
+  </div>
+
+  <div class="stat-card sc-m" data-icon="⚠️">
+    <div class="stat-icon-wrap">⚠️</div>
+    <span class="stat-num">{{ stats.get('MEDIUM', 0) }}</span>
+    <div class="stat-label">Medium Impact</div>
+    <div class="stat-sub">Monitor & plan response</div>
+  </div>
+
+  <div class="stat-card sc-l" data-icon="📌">
+    <div class="stat-icon-wrap">📌</div>
+    <span class="stat-num">{{ stats.get('LOW', 0) }}</span>
+    <div class="stat-label">Low Impact</div>
+    <div class="stat-sub">General awareness</div>
+  </div>
+
+  <div class="stat-card sc-t" data-icon="◉">
+    <div class="stat-icon-wrap">📡</div>
+    <span class="stat-num">{{ total }}</span>
+    <div class="stat-label">Items (Filtered)</div>
+    <div class="stat-sub">
+      {% if last_24h > 0 %}+{{ last_24h }} in last 24h · {% endif %}
+      {% if last_run %}Last run {{ last_run.started_at.strftime('%b %d %H:%M') }} UTC{% else %}No runs yet{% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── High-impact alert banner ── -->
+{% if stats.get('HIGH', 0) > 0 and not filter_impact and not filter_region %}
+<div class="alert-critical" role="alert">
+  <span class="ai">🚨</span>
+  <div>
+    <strong>{{ stats.get('HIGH',0) }} HIGH impact item{% if stats.get('HIGH',0) != 1 %}s{% endif %} detected</strong>
+    across your monitored markets. Immediate Slack + email alerts have been dispatched to your team.
+    <a href="?impact=HIGH" style="color:var(--lx-crimson);font-weight:600;margin-left:8px;">View all →</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Filters ── -->
+<div class="filter-bar" role="search" aria-label="Filter regulations">
+  <span class="filter-lbl">Impact</span>
+
+  <a href="/{% if filter_region %}?region={{ filter_region }}{% endif %}"
+     class="fchip {% if not filter_impact %}on{% endif %}">All</a>
+
+  <a href="?impact=HIGH{% if filter_region %}&region={{ filter_region }}{% endif %}"
+     class="fchip {% if filter_impact == 'HIGH' %}on-h{% endif %}">
+    🔴 High
+  </a>
+  <a href="?impact=MEDIUM{% if filter_region %}&region={{ filter_region }}{% endif %}"
+     class="fchip {% if filter_impact == 'MEDIUM' %}on-m{% endif %}">
+    🟡 Medium
+  </a>
+  <a href="?impact=LOW{% if filter_region %}&region={{ filter_region }}{% endif %}"
+     class="fchip {% if filter_impact == 'LOW' %}on-l{% endif %}">
+    🟢 Low
+  </a>
+
+  <div class="filter-sep"></div>
+  <span class="filter-lbl">Region</span>
+
+  {% for r in regions %}
+  <a href="?region={{ r }}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}"
+     class="fchip {% if filter_region == r %}on-region{% endif %}">
+    {{ r }}
+  </a>
+  {% endfor %}
+
+  {% if filter_region or filter_impact %}
+  <div class="filter-sep"></div>
+  <a href="/" class="fchip" style="color:var(--lx-crimson);">✕ Clear filters</a>
+  {% endif %}
+</div>
+
+<!-- ── Items ── -->
+{% if items %}
+<div class="reg-list" role="list">
+{% for item in items %}
+
+{% if item.impact_level and item.impact_level.value == 'HIGH' %}
+  {% set rc = 'rcard-h' %}
+{% elif item.impact_level and item.impact_level.value == 'MEDIUM' %}
+  {% set rc = 'rcard-m' %}
+{% else %}
+  {% set rc = 'rcard-l' %}
+{% endif %}
+
+<a href="/item/{{ item.id }}" class="rcard {{ rc }}" role="listitem">
+  <div class="rcard-top">
+    <div class="rcard-title">{{ item.title }}</div>
+    <div class="rcard-badges">
+      {% if item.impact_level %}
+        {% set il = item.impact_level.value %}
+        {% if il == 'HIGH' %}<span class="bdg bdg-h">{{ il }}</span>
+        {% elif il == 'MEDIUM' %}<span class="bdg bdg-m">{{ il }}</span>
+        {% else %}<span class="bdg bdg-l">{{ il }}</span>
+        {% endif %}
+      {% endif %}
+      {% if item.relevance_score %}
+      <div class="score-pill">
+        <div class="score-track">
+          <div class="score-fill" style="width:{{ '%.0f'|format(item.relevance_score*100) }}%"></div>
+        </div>
+        <span>{{ '%.0f'|format(item.relevance_score*100) }}%</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="rcard-meta">
+    <span class="region-tag">{{ item.region }}</span>
+    <span class="dot"></span>
+    <span>{{ item.source_name }}</span>
+    {% if item.published_at %}
+    <span class="dot"></span>
+    <span>{{ item.published_at.strftime('%Y-%m-%d') }}</span>
+    {% endif %}
+    {% if item.alert_sent %}
+    <span class="dot"></span>
+    <span style="color:var(--lx-crimson);font-size:11px;font-weight:600;">🔔 Alert dispatched</span>
+    {% endif %}
+  </div>
+
+  {% if item.ai_summary %}
+  <div class="rcard-summary">{{ item.ai_summary }}</div>
+  {% endif %}
+</a>
+
+{% endfor %}
+</div>
+
+<!-- ── Pagination ── -->
+{% if total_pages > 1 %}
+<nav class="pager" aria-label="Pagination">
+  {% if page > 1 %}
+  <a href="?page={{ page-1 }}{% if filter_region %}&region={{ filter_region }}{% endif %}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}" aria-label="Previous page">‹</a>
+  {% endif %}
+  {% for p in range(1, total_pages+1) %}
+  <a href="?page={{ p }}{% if filter_region %}&region={{ filter_region }}{% endif %}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}"
+     class="{% if p == page %}cur{% endif %}" aria-label="Page {{ p }}" {% if p == page %}aria-current="page"{% endif %}>{{ p }}</a>
+  {% endfor %}
+  {% if page < total_pages %}
+  <a href="?page={{ page+1 }}{% if filter_region %}&region={{ filter_region }}{% endif %}{% if filter_impact %}&impact={{ filter_impact }}{% endif %}" aria-label="Next page">›</a>
+  {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<!-- Empty state -->
+<div class="empty-state">
+  <div class="es-icon" aria-hidden="true">◉</div>
+  <h4>No regulations tracked yet</h4>
+  <p>Click <strong>Scrape Sources</strong> in the sidebar to pull the latest AI governance content from all 14 monitored sources across EU, India, Africa, and beyond.</p>
+  <button class="btn btn-primary" onclick="lxAction('/api/scrape','Scraping 14 sources…','Scrape complete')">
+    ⚡ Start First Scrape
+  </button>
+</div>
+{% endif %}
+
+{% endblock %}
