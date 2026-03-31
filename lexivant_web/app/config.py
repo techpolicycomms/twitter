@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     sendgrid_api_key: str = ""
     sendgrid_from_email: str = "regwatch@auditchain.ai"
     sendgrid_from_name: str = "RegWatch by AuditChain"
+    sendgrid_sender_id: int = 1  # SendGrid verified sender ID for Single Sends
     team_email_recipients: list[str] = []
     newsletter_list_id: str = ""  # SendGrid list ID for newsletter subscribers
 

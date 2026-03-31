@@ -18,6 +18,21 @@ import { authMiddleware } from "./middleware/auth";
 import { rateLimiter } from "./middleware/rateLimit";
 import { logger } from "./lib/logger";
 
+// ── Startup env var validation ──────────────────────────────
+const REQUIRED_ENV_VARS = [
+  "DATABASE_URL",
+  "JWT_SECRET",
+  "JWT_REFRESH_SECRET",
+  "REDIS_URL",
+  "AUDIT_ENGINE_URL",
+];
+
+const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
+if (missingVars.length > 0) {
+  console.error(`[startup] Missing required environment variables: ${missingVars.join(", ")}`);
+  process.exit(1);
+}
+
 const app = express();
 const httpServer = createServer(app);
 

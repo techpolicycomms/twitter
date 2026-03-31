@@ -19,10 +19,17 @@ logger = logging.getLogger(__name__)
 cron_router = APIRouter(prefix="/api/cron", tags=["cron"])
 
 CRON_SECRET = os.getenv("CRON_SECRET", "")
+APP_ENV = os.getenv("APP_ENV", "development")
+
+if not CRON_SECRET and APP_ENV == "production":
+    raise RuntimeError("CRON_SECRET must be set in production")
+
+if not CRON_SECRET:
+    logger.warning("CRON_SECRET is not set — cron endpoints are unauthenticated (dev mode only)")
 
 
 def _verify_cron(authorization: str | None):
-    """Verify Vercel cron secret or allow if not set (dev mode)."""
+    """Verify Vercel cron secret. Unauthenticated access is only allowed when CRON_SECRET is unset in dev."""
     if not CRON_SECRET:
         return  # dev mode, no auth
     expected = f"Bearer {CRON_SECRET}"
@@ -61,8 +68,12 @@ async def cron_digest(authorization: str | None = Header(default=None)):
     _verify_cron(authorization)
     from app.config import settings
 
-    async with AsyncSessionLocal() as db:
-        report = await generate_daily_digest(db)
+    try:
+        async with AsyncSessionLocal() as db:
+            report = await generate_daily_digest(db)
+    except Exception as exc:
+        logger.error("[cron/digest] Failed to generate daily digest: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to generate digest")
 
     if report and settings.team_email_recipients:
         from datetime import datetime, timezone
@@ -88,8 +99,12 @@ async def cron_linkedin(authorization: str | None = Header(default=None)):
     """Weekly LinkedIn post. Called by Vercel every Monday 09:00 UTC."""
     _verify_cron(authorization)
 
-    async with AsyncSessionLocal() as db:
-        report = await generate_weekly_linkedin(db)
+    try:
+        async with AsyncSessionLocal() as db:
+            report = await generate_weekly_linkedin(db)
+    except Exception as exc:
+        logger.error("[cron/linkedin] Failed to generate LinkedIn post: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to generate LinkedIn post")
 
     if report:
         return {"report_id": report.id, "chars": len(report.content_text or "")}
@@ -102,8 +117,12 @@ async def cron_newsletter(authorization: str | None = Header(default=None)):
     _verify_cron(authorization)
     from app.config import settings
 
-    async with AsyncSessionLocal() as db:
-        report = await generate_monthly_newsletter(db)
+    try:
+        async with AsyncSessionLocal() as db:
+            report = await generate_monthly_newsletter(db)
+    except Exception as exc:
+        logger.error("[cron/newsletter] Failed to generate newsletter: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to generate newsletter")
 
     if report:
         if settings.newsletter_list_id:

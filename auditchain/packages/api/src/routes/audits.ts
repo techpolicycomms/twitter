@@ -37,7 +37,30 @@ auditsRouter.post(
     body("modelName").notEmpty().trim(),
     body("modelType").isIn(["sklearn", "onnx", "api", "pytorch"]),
     body("modelVersion").optional().trim(),
-    body("scope").isJSON(),
+    body("scope")
+      .isJSON()
+      .custom((value: string) => {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(value);
+        } catch {
+          throw new Error("scope must be valid JSON");
+        }
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          throw new Error("scope must be a JSON object");
+        }
+        const scope = parsed as Record<string, unknown>;
+        const required = ["fairness", "explainability", "robustness"];
+        for (const key of required) {
+          if (!(key in scope)) {
+            throw new Error(`scope is missing required field: ${key}`);
+          }
+          if (typeof scope[key] !== "boolean") {
+            throw new Error(`scope.${key} must be a boolean`);
+          }
+        }
+        return true;
+      }),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);

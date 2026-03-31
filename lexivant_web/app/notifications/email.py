@@ -175,7 +175,7 @@ async def send_newsletter_via_sendgrid_list(
         "email_config": {
             "subject": report.title,
             "html_content": report.content_html,
-            "sender_id": 1,  # must be set via SendGrid UI / env
+            "sender_id": settings.sendgrid_sender_id,
             "suppression_group_id": None,
         },
     }
