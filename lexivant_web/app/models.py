@@ -67,6 +67,9 @@ class RegulationItem(Base):
     action_items: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array as string
     keywords: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Content-hash deduplication: SHA-256[:16] of raw_content — prevents re-analyzing
+    # identical static gov pages scraped on consecutive days (zero additional Claude calls)
+    content_hash: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
 
     # Alert tracking
     alert_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

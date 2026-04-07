@@ -296,3 +296,47 @@ async def list_items(
         }
         for i in items
     ]
+
+
+# ── SSE endpoint for real-time dashboard updates ─────────────────────────────
+# Pattern from fastapi-htmx-tailwind-example (101★) + sse-starlette
+# The dashboard uses: hx-ext="sse" hx-sse-connect="/api/stream"
+# to receive partial HTML fragments pushed from the server
+
+import asyncio as _asyncio
+from sse_starlette.sse import EventSourceResponse
+
+
+@router.get("/api/stream")
+async def stream_events(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    SSE endpoint — broadcasts live counts and new HIGH-impact alerts.
+    HTMX client subscribes via hx-ext="sse" hx-sse-connect="/api/stream"
+    and swaps only the affected dashboard elements (stat counters, alert banner).
+    """
+    async def _event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+
+            # Push current HIGH-impact unalerted count every 30s
+            try:
+                from sqlalchemy import func as _func
+                count_result = await db.execute(
+                    select(_func.count(RegulationItem.id)).where(
+                        RegulationItem.impact_level == ImpactLevel.HIGH,
+                        RegulationItem.alert_sent == False,  # noqa: E712
+                        RegulationItem.analyzed == True,    # noqa: E712
+                    )
+                )
+                count = count_result.scalar_one()
+                yield {
+                    "event": "high-impact-count",
+                    "data": str(count),
+                }
+            except Exception:
+                pass
+
+            await _asyncio.sleep(30)
+
+    return EventSourceResponse(_event_generator())
