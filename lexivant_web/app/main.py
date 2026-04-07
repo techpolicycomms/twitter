@@ -55,6 +55,28 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(cron_router)
 
+    # Health check endpoint (for load balancers and uptime monitors)
+    from fastapi.responses import JSONResponse
+    from datetime import datetime, timezone
+
+    @app.get("/health", tags=["meta"])
+    async def health_check():
+        """Returns 200 with DB connectivity status."""
+        from app.database import AsyncSessionLocal
+        from sqlalchemy import text
+        db_ok = False
+        try:
+            async with AsyncSessionLocal() as db:
+                await db.execute(text("SELECT 1"))
+                db_ok = True
+        except Exception:
+            pass
+        return JSONResponse(
+            status_code=200 if db_ok else 503,
+            content={"status": "ok" if db_ok else "degraded", "db": "up" if db_ok else "down",
+                     "ts": datetime.now(timezone.utc).isoformat()},
+        )
+
     return app
 
 

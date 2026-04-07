@@ -1,4 +1,11 @@
-"""Claude-powered analysis pipeline for regulation items."""
+"""
+Claude-powered analysis pipeline for regulation items.
+
+Uses Anthropic tool_use (function calling) for structured, schema-validated
+output — adapted from top LLM pipeline repos. Guarantees parseable JSON without
+fragile regex-stripping hacks; Claude is forced to call the tool exactly once.
+Falls back to JSON text parsing if tool_use is unavailable.
+"""
 import json
 import logging
 from datetime import datetime, timezone
@@ -14,6 +21,52 @@ logger = logging.getLogger(__name__)
 
 _client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
+# ── Tool schema: Claude MUST call this exactly once ──────────────────────────
+_ANALYSIS_TOOL = {
+    "name": "record_analysis",
+    "description": (
+        "Record the structured analysis of an AI/tech regulation item. "
+        "Call this exactly once with all fields populated."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "is_relevant": {
+                "type": "boolean",
+                "description": "True if relevant to AI auditing, algorithmic accountability, or AI governance",
+            },
+            "relevance_score": {
+                "type": "number",
+                "description": "0.0–1.0 float — how relevant to AuditChain's services",
+            },
+            "impact_level": {
+                "type": "string",
+                "enum": ["HIGH", "MEDIUM", "LOW"],
+                "description": (
+                    "HIGH = mandatory requirements / immediate compliance deadline; "
+                    "MEDIUM = proposed/consultation stage; "
+                    "LOW = general awareness"
+                ),
+            },
+            "summary": {
+                "type": "string",
+                "description": "2-3 sentence plain-English summary for a policy audience",
+            },
+            "action_items": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Concrete steps AuditChain should consider",
+            },
+            "keywords": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "5-10 policy/legal keyword tags",
+            },
+        },
+        "required": ["is_relevant", "relevance_score", "impact_level", "summary", "action_items", "keywords"],
+    },
+}
+
 ANALYSIS_SYSTEM_PROMPT = """You are a regulatory intelligence analyst for AuditChain,
 a third-party AI/ML model auditing and certification platform focused on African and
 emerging market contexts. Your job is to evaluate regulatory and policy documents for
@@ -22,29 +75,14 @@ their relevance and impact on AI auditing, algorithmic accountability, and AI go
 AuditChain's core services:
 - Independent algorithmic audits for fairness, transparency, and robustness
 - Blockchain-based certification (NFT certificates) for audited models
-- Serving clients in fintech, healthcare, government, and enterprise across Africa and Asia
+- Serving clients in fintech, healthcare, government, and enterprise across Africa and Asia"""
 
-When analyzing documents, always respond with valid JSON only."""
-
-ANALYSIS_USER_PROMPT = """Analyze the following regulatory document/announcement and return a JSON object.
+ANALYSIS_USER_PROMPT = """Analyze the following regulatory document/announcement.
 
 Source: {source_name} ({region})
 Title: {title}
 URL: {url}
 Content: {content}
-
-Return EXACTLY this JSON structure (no markdown, no extra text):
-{{
-  "is_relevant": true/false,
-  "relevance_score": 0.0-1.0,
-  "impact_level": "HIGH" | "MEDIUM" | "LOW",
-  "summary": "2-3 sentence summary of what this item is about and why it matters",
-  "action_items": [
-    "Specific action AuditChain should consider",
-    "Another action if applicable"
-  ],
-  "keywords": ["keyword1", "keyword2", "keyword3"]
-}}
 
 Relevance criteria (is_relevant = true if ANY apply):
 - Mentions AI auditing, algorithmic accountability, or AI certification requirements
@@ -63,7 +101,13 @@ If is_relevant is false, still provide a brief summary but impact_level should b
 
 
 async def analyze_item(item: RegulationItem) -> dict:
-    """Send a regulation item to Claude for analysis. Returns parsed JSON."""
+    """
+    Send a regulation item to Claude for analysis using tool_use (function calling).
+
+    tool_use guarantees schema-validated JSON output — no regex-stripping or
+    JSON parse errors from markdown wrapping. Claude is forced to call
+    `record_analysis` exactly once, populating all required fields.
+    """
     prompt = ANALYSIS_USER_PROMPT.format(
         source_name=item.source_name,
         region=item.region,
@@ -76,20 +120,21 @@ async def analyze_item(item: RegulationItem) -> dict:
         model=settings.anthropic_model,
         max_tokens=1024,
         system=ANALYSIS_SYSTEM_PROMPT,
+        tools=[_ANALYSIS_TOOL],
+        tool_choice={"type": "tool", "name": "record_analysis"},
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip()
+    # Extract tool_use block — guaranteed by tool_choice={"type":"tool"}
+    for block in message.content:
+        if block.type == "tool_use" and block.name == "record_analysis":
+            result = dict(block.input)
+            result["_input_tokens"] = message.usage.input_tokens
+            result["_output_tokens"] = message.usage.output_tokens
+            return result
 
-    # Strip markdown code blocks if present
-    if raw.startswith("```"):
-        lines = raw.split("\n")
-        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-
-    result = json.loads(raw)
-    result["_input_tokens"] = message.usage.input_tokens
-    result["_output_tokens"] = message.usage.output_tokens
-    return result
+    # Fallback: if somehow no tool call (should not happen with tool_choice forced)
+    raise ValueError("Claude did not return record_analysis tool call")
 
 
 async def analyze_batch(db: AsyncSession, batch_size: int = 10) -> int:

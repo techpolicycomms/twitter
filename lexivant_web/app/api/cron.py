@@ -14,6 +14,7 @@ from app.reports.generator import (
     generate_weekly_linkedin,
 )
 from app.scrapers import ALL_SCRAPERS
+from app.scrapers.base import reset_circuits
 
 logger = logging.getLogger(__name__)
 cron_router = APIRouter(prefix="/api/cron", tags=["cron"])
@@ -41,6 +42,7 @@ def _verify_cron(authorization: str | None):
 async def cron_scrape(authorization: str | None = Header(default=None)):
     """Daily scrape: all sources → analyze → alerts. Called by Vercel at 06:00 UTC."""
     _verify_cron(authorization)
+    reset_circuits()  # allow retrying domains that failed in previous runs
     total_new = 0
 
     async with AsyncSessionLocal() as db:
